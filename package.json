@@ -1,0 +1,30 @@
+{
+  "name": "erase-attacker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.18.1",
+    "@typescript-eslint/parser": "^6.18.1",
+    "eslint": "^8.56.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@auth/core": "^0.20.0",
+    "@hono/auth-js": "^1.0.1",
+    "@hono/oauth-providers": "^0.3.0",
+    "fs-extra": "^11.2.0",
+    "hono": "^3.12.3",
+    "zod": "^3.22.4"
+  }
+}
