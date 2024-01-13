@@ -3,7 +3,7 @@ import { config } from "./env.ts";
 
 export const tokenResponseSchema = z.object({
   access_token: z.string(),
-  token_type: z.literal("bearer"),
+  token_type: z.literal("Bearer"),
   expires_in: z.number().default(3600),
   refresh_token: z.string(),
   scope: z.string(),
@@ -29,6 +29,7 @@ export async function getTokenResponse({ code }: { code: string }) {
   };
 
   const response = await fetch(tokenUrl, payload);
+  console.log({ response });
 
   return tokenResponseSchema.parse(await response.json());
 }

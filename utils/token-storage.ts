@@ -11,8 +11,10 @@ const saveTokenSchema = z.object({
 
 type SaveToken = z.infer<typeof saveTokenSchema>;
 
+const DEFAULT_TOKEN_FILENAME = ".token.json";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const here = (...p: string[]) => path.join(__dirname, ...p);
+export const here = (...p: string[]) => path.join(__dirname, ...p);
+export const tokenFilePath = here("..", DEFAULT_TOKEN_FILENAME);
 
 export async function saveTokenToFile(
   data: SaveToken,
@@ -22,7 +24,7 @@ export async function saveTokenToFile(
   return fsExtra.writeJSON(filePath, data);
 }
 
-export async function getTokenFromFile(filename = ".token.json") {
+export async function getTokenFromFile(filename = DEFAULT_TOKEN_FILENAME) {
   const filePath = here(filename);
   const exists = await fsExtra.exists(filePath);
 
