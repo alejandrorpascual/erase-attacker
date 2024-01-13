@@ -19,9 +19,7 @@ async function entryHandler(c: Context) {
     state: randomUUID(),
   });
 
-  const process = await open(
-    `https://accounts.spotify.com/authorize?${params.toString()}`,
-  );
+  await open(`https://accounts.spotify.com/authorize?${params.toString()}`);
 
   return c.text("Check your browser!");
 }

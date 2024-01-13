@@ -33,7 +33,6 @@ export async function getToken({ saveToFile, code }: GetTokenParams) {
   }
 
   const tokenResponse = await getTokenResponse({ code });
-  console.log({ tokenResponse });
 
   if (saveToFile) {
     await saveTokenToFile({

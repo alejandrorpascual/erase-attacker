@@ -4,8 +4,10 @@ import { userResponseSchema } from "../spotify-responses/user.ts";
 import { z } from "zod";
 import { pipeline } from "node:stream/promises";
 import { fetcher } from "./fetcher.ts";
+import fsExtra from "fs-extra";
+import { tracksFilePath } from "../init.ts";
 
-const playlistTracksSchema = z
+const playlistTracksResponseSchema = z
   .object({
     href: z.string(),
     items: z.array(
@@ -21,6 +23,7 @@ const playlistTracksSchema = z
     ),
   })
   .merge(paginationResponseSchema);
+type PlaylistTracksResponse = z.infer<typeof playlistTracksResponseSchema>;
 
 type PlaylistTracksOptions = { token: string; offset?: number; limit?: number };
 
@@ -37,7 +40,7 @@ export async function getPlaylistTracks(
 
   return {
     type: "success",
-    data: playlistTracksSchema.parse(await response.json()),
+    data: playlistTracksResponseSchema.parse(await response.json()),
   } as const;
 }
 
@@ -46,17 +49,18 @@ export async function getPlaylistTracksByUserId(
   {
     token,
     logProcess, // can be use to log progress
+    storeTracks = true, // can be use to store tracks in a file
     ...options
-  }: PlaylistTracksOptions & { logProcess?: (progress: number) => void },
+  }: PlaylistTracksOptions & {
+    logProcess?: (progress: number) => void;
+    storeTracks?: boolean;
+  },
 ) {
   const res = await getPlaylistTracks(playlistId, { token, limit: 1 });
   if (res.type === "error") return res;
 
   const limit = options.limit ?? 50;
   const { total } = res.data;
-  const offsets = Array.from({ length: Math.ceil(total / limit) }).map(
-    (_, i) => i * limit,
-  );
 
   const errors: number[] = [];
 
@@ -65,50 +69,11 @@ export async function getPlaylistTracksByUserId(
   const userTracksMap = new Map<UserId, TrackId[]>();
 
   await pipeline(
-    async function* () {
-      for (const offset of offsets) {
-        const res = await getPlaylistTracks(playlistId, {
-          token,
-          offset,
-          limit,
-        });
-        yield { res, offset };
-      }
-    },
-    async function* (stream) {
-      for await (const { res, offset } of stream) {
-        if (res.type === "error") {
-          errors.push(offset);
-          continue;
-        }
-
-        for (const item of res.data.items) {
-          const userId = item.added_by?.id;
-          if (!userId) continue;
-
-          const trackId = item.track.id;
-          const tracks = userTracksMap.get(userId) ?? [];
-          userTracksMap.set(userId, [...tracks, trackId]);
-        }
-
-        yield { offset, res };
-      }
-    },
-    async function* (stream) {
-      for await (const res of stream) {
-        yield res;
-      }
-    },
+    getSourceGenerator({ total, playlistId, token, limit }),
+    getStoreInMapGenerator({ errors, userTracksMap }),
+    getStoreTracksGenerator({ storeTracks, userTracksMap }),
     logProcess
-      ? async function* (stream) {
-          let i = 0;
-          for await (const { offset, res } of stream) {
-            i++;
-            const progress = Math.round((i / offsets.length) * 100);
-            logProcess(progress);
-            yield { offset, res };
-          }
-        }
+      ? getLogProgressGenerator({ total, logProcess })
       : process.stderr,
   );
 
@@ -145,12 +110,136 @@ export async function isPlaylistCollaborative(
     return { type: "error", message: response.statusText } as const;
   }
 
+  const jsonResponse = await response.json();
+  console.log({ jsonResponse });
   const data = z
     .object({ collaborative: z.boolean() })
-    .parse(await response.json());
+    .parse(await jsonResponse);
 
   return {
     type: "success",
     data: data.collaborative,
   } as const;
+}
+
+type InitialStream = AsyncIterable<{
+  offset: number;
+  res:
+    | {
+        type: "success";
+        data: PlaylistTracksResponse;
+      }
+    | {
+        type: "error";
+        message: string;
+      };
+}>;
+type SuccessStream = AsyncIterable<{
+  offset: number;
+  res: {
+    type: "success";
+    data: PlaylistTracksResponse;
+  };
+}>;
+
+type Params = {
+  total: number;
+  playlistId: string;
+  token: string;
+  limit: number;
+};
+
+function getSourceGenerator({ total, playlistId, token, limit }: Params) {
+  return async function* () {
+    for (let offset = 0; offset < total; offset += limit) {
+      const res = await getPlaylistTracks(playlistId, {
+        token,
+        offset,
+        limit,
+      });
+      yield { res, offset };
+    }
+  };
+}
+
+function getStoreInMapGenerator({
+  errors,
+  userTracksMap,
+}: {
+  errors: number[];
+  userTracksMap: Map<string, string[]>;
+}) {
+  return async function* (stream: InitialStream) {
+    for await (const { res, offset } of stream) {
+      if (res.type === "error") {
+        errors.push(offset);
+        continue;
+      }
+
+      for (const item of res.data.items) {
+        const userId = item.added_by?.id;
+        if (!userId) continue;
+
+        const trackId = item.track.id;
+        const tracks = userTracksMap.get(userId) ?? [];
+        userTracksMap.set(userId, [...tracks, trackId]);
+      }
+
+      yield { offset, res };
+    }
+  };
+}
+
+function getLogProgressGenerator({
+  total,
+  logProcess,
+}: {
+  total: number;
+  logProcess: (progress: number) => void;
+}) {
+  return async function* (stream: SuccessStream) {
+    for await (const { offset, res } of stream) {
+      const progress = Math.round((offset / total) * 100);
+      logProcess(progress);
+      yield { offset, res };
+    }
+  };
+}
+
+function getStoreTracksGenerator({
+  storeTracks,
+  userTracksMap,
+}: {
+  storeTracks: boolean;
+  userTracksMap: Map<string, string[]>;
+}) {
+  return async function* (stream: SuccessStream) {
+    for await (const { offset, res } of stream) {
+      if (storeTracks) {
+        await storeMapInFilesystem(tracksFilePath, userTracksMap);
+      }
+
+      yield { offset, res };
+    }
+  };
+}
+
+function storeMapInFilesystem(filepath: string, data: Map<string, string[]>) {
+  return fsExtra.writeJSON(filepath, Object.fromEntries(data.entries()));
+}
+
+/**
+ * Gets a Map<UserId, TrackId[]> from a file in the file system.
+ *
+ * @param {string} filepath - The path to the file to load.
+ * @returns {Promise<Map<string, string[]> | null>}
+ *   A Promise resolving to the Map loaded from the file,
+ *   or null if the file does not exist.
+ */
+export async function getMapFromFileSystem(filepath: string) {
+  const exists = await fsExtra.pathExists(filepath);
+  if (!exists) return null;
+
+  const obj = z.record(z.string().array());
+  return new Map(Object.entries(obj));
 }

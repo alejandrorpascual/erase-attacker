@@ -29,7 +29,6 @@ export async function getTokenResponse({ code }: { code: string }) {
   };
 
   const response = await fetch(tokenUrl, payload);
-  console.log({ response });
 
   return tokenResponseSchema.parse(await response.json());
 }
