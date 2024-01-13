@@ -12,35 +12,19 @@ const tokenSchema = z.object({
   expires_in: z.number(),
 });
 
-async function getTokenResponse() {
-  const response = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-    }),
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization:
-        "Basic " +
-        Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64"),
-    },
-  });
-
-  return tokenSchema.parse(await response.json());
-}
-
-async function checkIfTokenExpired(lastTokenDate: Date) {
-  const now = new Date();
-  const diff = now.getTime() - lastTokenDate.getTime();
-
-  return diff > 3600 * 1000;
-}
+type GetTokenParams = (
+  | {
+      savedToken?: undefined;
+      lastTokenDate?: undefined;
+    }
+  | {
+      savedToken: string;
+      lastTokenDate: Date;
+    }
+) & { saveToFile?: boolean };
 
 export async function getToken(
-  {
-    saveToFile,
-    ...rest
-  }: { savedToken?: string; lastTokenDate?: Date; saveToFile?: boolean } = {
+  { saveToFile, ...rest }: GetTokenParams = {
     saveToFile: true,
   },
 ) {
@@ -70,6 +54,30 @@ export async function getToken(
   }
 
   return tokenResponse.access_token;
+}
+
+async function getTokenResponse() {
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+    }),
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization:
+        "Basic " +
+        Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64"),
+    },
+  });
+
+  return tokenSchema.parse(await response.json());
+}
+
+async function checkIfTokenExpired(lastTokenDate: Date) {
+  const now = new Date();
+  const diff = now.getTime() - lastTokenDate.getTime();
+
+  return diff > 3600 * 1000;
 }
 
 const saveTokenSchema = z.object({
