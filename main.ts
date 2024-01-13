@@ -1,11 +1,12 @@
 import { cancel, intro, isCancel, outro, log } from "@clack/prompts";
 import "./utils/env.ts";
-import { getTokenFromFile, tokenFilePath } from "./utils/token-storage.ts";
+import { getTokenFromFile } from "./utils/token-storage.ts";
 import { getServer } from "./server.ts";
 
 intro(`create-my-app`);
 
 let token = await getTokenFromFile();
+
 if (!token) {
   log.info("You need to authenticate first.");
   const server = getServer();

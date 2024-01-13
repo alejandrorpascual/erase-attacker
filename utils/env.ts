@@ -2,6 +2,8 @@ import { italic, red } from "kolorist";
 import { z } from "zod";
 
 export const REDIRECT_PATH = "auth/spotify/callback";
+const BASE_API_URL = "https://api.spotify.com";
+
 export const spotifyEnvSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string(),
   SPOTIFY_CLIENT_SECRET: z.string(),
@@ -42,5 +44,6 @@ export const config = {
     clientId: processedEnv.SPOTIFY_CLIENT_ID,
     clientSecret: processedEnv.SPOTIFY_CLIENT_SECRET,
     redirectUri: `http://localhost:3000/${REDIRECT_PATH}`,
+    baseApiUrl: BASE_API_URL,
   },
 };
