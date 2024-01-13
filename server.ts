@@ -19,7 +19,10 @@ async function entryHandler(c: Context) {
     state: randomUUID(),
   });
 
-  await open(`https://accounts.spotify.com/authorize?${params.toString()}`);
+  const process = await open(
+    `https://accounts.spotify.com/authorize?${params.toString()}`,
+  );
+
   return c.text("Check your browser!");
 }
 
@@ -33,4 +36,9 @@ export async function callbackHandler(c: Context) {
   return c.text("You're all set!");
 }
 
-export const getServer = () => serve(app);
+export const getServer = () =>
+  serve(app, ({ port }) => {
+    if (config.env === "development") {
+      console.log(`Server listening on http://localhost:${port}`);
+    }
+  });

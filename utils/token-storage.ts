@@ -24,8 +24,7 @@ export async function saveTokenToFile(
   return fsExtra.writeJSON(filePath, data);
 }
 
-export async function getTokenFromFile(filename = DEFAULT_TOKEN_FILENAME) {
-  const filePath = here(filename);
+export async function getTokenFromFile(filePath = tokenFilePath) {
   const exists = await fsExtra.exists(filePath);
 
   if (!exists) return null;
