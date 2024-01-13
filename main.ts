@@ -4,6 +4,7 @@ import { config } from "./utils/env.ts";
 import { scopes } from "./utils/scopes.ts";
 import { randomUUID } from "node:crypto";
 import open from "open";
+import { getToken } from "./utils/get-token.ts";
 
 const app = new Hono();
 
@@ -19,17 +20,16 @@ async function entryHandler(c: Context) {
   });
 
   await open(`https://accounts.spotify.com/authorize?${params.toString()}`);
-  c.text("Check your browser!");
+  return c.text("Check your browser!");
 }
 
 app.get("/callback", callbackHandler);
 
 export async function callbackHandler(c: Context) {
   const url = new URL(c.req.url);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const code = String(url.searchParams.get("code"));
+
+  await getToken({ code });
 }
 
-serve(app, (info) => {
-  console.log(`Server listening on http://localhost:${info.port}`);
-});
+const server = serve(app);

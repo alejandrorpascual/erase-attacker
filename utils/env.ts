@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 const schema = z.object({
-  NODE_ENV: z.enum(["production", "development", "test"] as const),
+  NODE_ENV: z
+    .enum(["production", "development", "test"] as const)
+    .default("development"),
   SPOTIFY_CLIENT_ID: z.string(),
   SPOTIFY_CLIENT_SECRET: z.string(),
 });
@@ -19,5 +21,6 @@ export const config = {
   spotify: {
     clientId: processedEnv.SPOTIFY_CLIENT_ID,
     clientSecret: processedEnv.SPOTIFY_CLIENT_SECRET,
+    redirectUri: "http://localhost:3000/callback",
   },
 };
