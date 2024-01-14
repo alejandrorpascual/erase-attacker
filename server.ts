@@ -4,7 +4,8 @@ import { REDIRECT_PATH, config } from "./utils/env.ts";
 import { scopes } from "./utils/scopes.ts";
 import { randomUUID } from "node:crypto";
 import open from "open";
-import { getToken } from "./utils/get-token.ts";
+import { saveTokenToFile } from "./utils/token-storage.ts";
+import { getTokenResponse } from "./utils/get-token-response.ts";
 
 const app = new Hono();
 
@@ -30,13 +31,20 @@ export async function callbackHandler(c: Context) {
   const url = new URL(c.req.url);
   const code = String(url.searchParams.get("code"));
 
-  await getToken({ code });
+  const tokenData = await getTokenResponse({ code });
+  await saveTokenToFile({ ...tokenData, last_generated: new Date() });
+
   return c.text("You're all set!");
 }
 
-export const getServer = () =>
-  serve(app, ({ port }) => {
-    if (config.env === "development") {
-      console.log(`Server listening on http://localhost:${port}`);
-    }
+export function getServer() {
+  return new Promise<ReturnType<typeof serve>>((resolve) => {
+    const server = serve(app, ({ port }) => {
+      if (config.env === "development") {
+        console.log(`Server listening on http://localhost:${port}`);
+      }
+    });
+
+    resolve(server);
   });
+}

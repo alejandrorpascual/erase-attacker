@@ -19,8 +19,6 @@ export async function saveTokenToFile(
 
 export async function getTokenFromFile(filePath = tokenFilePath) {
   const exists = await fsExtra.pathExists(filePath);
-  console.log({ exists });
-
   if (!exists) return null;
 
   return saveTokenSchema.parse(await fsExtra.readJSON(filePath));

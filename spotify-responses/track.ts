@@ -16,7 +16,7 @@ export const trackResponseSchema = z.object({
   href: z.string().url(),
   id: z.string(),
   is_local: z.boolean(),
-  is_playable: z.boolean(),
+  is_playable: z.boolean().optional(),
   name: z.string(),
   popularity: z.number(),
   preview_url: z.nullable(z.string().url()),

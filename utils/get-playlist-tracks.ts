@@ -48,11 +48,11 @@ export async function getPlaylistTracksByUserId(
   playlistId: string,
   {
     token,
-    logProcess, // can be use to log progress
+    logProgress, // can be use to log progress
     storeTracks = true, // can be use to store tracks in a file
     ...options
   }: PlaylistTracksOptions & {
-    logProcess?: (progress: number) => void;
+    logProgress?: (progress: number) => void;
     storeTracks?: boolean;
   },
 ) {
@@ -72,8 +72,8 @@ export async function getPlaylistTracksByUserId(
     getSourceGenerator({ total, playlistId, token, limit }),
     getStoreInMapGenerator({ errors, userTracksMap }),
     getStoreTracksGenerator({ storeTracks, userTracksMap }),
-    logProcess
-      ? getLogProgressGenerator({ total, logProcess })
+    logProgress
+      ? getLogProgressGenerator({ total, logProcess: logProgress })
       : process.stderr,
   );
 
@@ -111,7 +111,6 @@ export async function isPlaylistCollaborative(
   }
 
   const jsonResponse = await response.json();
-  console.log({ jsonResponse });
   const data = z
     .object({ collaborative: z.boolean() })
     .parse(await jsonResponse);

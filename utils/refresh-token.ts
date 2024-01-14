@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { config } from "./env.ts";
+import { saveTokenToFile } from "./token-storage.ts";
 
 const refreshTokenSchema = z.object({
   access_token: z.string(),
@@ -26,4 +27,20 @@ export async function getNewToken({
   };
   const body = await fetch(url, payload);
   return refreshTokenSchema.parse(await body.json());
+}
+
+export async function refreshToken({
+  refresh_token,
+}: {
+  refresh_token: string;
+}) {
+  const tokenData = await getNewToken({ refresh_token });
+  const last_generated = new Date();
+  const newTokenData = {
+    last_generated,
+    ...tokenData,
+  };
+
+  await saveTokenToFile(newTokenData);
+  return newTokenData;
 }
