@@ -46,10 +46,18 @@ export async function deleteAllAttackerItems(
     controller,
   }: Options & {
     limit?: number;
-    logProgress: (progress: number) => void;
+    logProgress: (input: { progress: number; timeCalculation: string }) => void;
     controller: AbortController;
   },
 ) {
+  const timeCalculation = {
+    totalBytes: 0,
+    iteration: 0,
+    startTime: Date.now(),
+    averageSpeed: 0,
+    remainingBytes: 0,
+  };
+
   async function* sourceStream() {
     const rest = trackIds.length % limit;
 
@@ -62,23 +70,21 @@ export async function deleteAllAttackerItems(
     }
   }
 
-  let snapshotId: string | undefined;
+  const snapshotIdWrapper = { snapshotId: "" };
 
   try {
     await pipeline(
       sourceStream,
       getDeleteGenerator({ token, playlistId }),
-      async function* (stream) {
-        for await (const { snapshot_id, offset } of stream) {
-          snapshotId = snapshot_id;
-          yield { offset };
-        }
-      },
-      getLoggerStream({ trackIds, logProgress }),
+      getStoreSnapshotIdStream(snapshotIdWrapper),
+      getLoggerStream({ trackIds, logProgress, timeCalculation }),
       { signal: controller.signal },
     );
 
-    return { type: "success", data: { snapshot_id: snapshotId } } as const;
+    return {
+      type: "success",
+      data: { snapshot_id: snapshotIdWrapper.snapshotId },
+    } as const;
   } catch (e) {
     if (e instanceof Error) {
       return { type: "error", message: e.message } as const;
@@ -103,19 +109,71 @@ function getDeleteGenerator({ token, playlistId }: Options) {
   };
 }
 
+function getStoreSnapshotIdStream(snapshotIdWrapper: { snapshotId: string }) {
+  return async function* storeSnapshotIdStream(
+    stream: AsyncIterable<{
+      snapshot_id: string;
+      offset: number;
+    }>,
+  ) {
+    for await (const { snapshot_id, offset } of stream) {
+      snapshotIdWrapper.snapshotId = snapshot_id;
+      yield { offset };
+    }
+  };
+}
+
 function getLoggerStream({
   trackIds,
   logProgress,
+  timeCalculation: tc,
 }: {
   trackIds: string[];
-  logProgress: (progress: number) => void;
+  logProgress: (input: { progress: number; timeCalculation: string }) => void;
+  timeCalculation: {
+    totalBytes: number;
+    iteration: number;
+    startTime: number;
+    averageSpeed: number;
+  };
 }) {
   return new Writable({
     objectMode: true,
     write(chunk, _encoding, callback) {
+      // console.log("\n==========================");
+      // console.log({ chunk });
+      // console.log("============================\n");
       const { offset } = z.object({ offset: z.number() }).parse(chunk);
-      const progress = Math.round((offset / trackIds.length) * 100);
-      logProgress(progress);
+      const total = trackIds.length;
+      const progress = Math.round((offset / total) * 100);
+
+      tc.totalBytes = offset;
+      tc.iteration++;
+
+      let timeCalculation: string | null = null;
+      if (tc.iteration <= 10) {
+        timeCalculation = "🧮 Calculating ETA";
+      } else {
+        const elapsedSeconds = (Date.now() - tc.startTime) / 1000;
+        tc.averageSpeed = tc.totalBytes / elapsedSeconds;
+        const remainingBytes = total - tc.totalBytes;
+        const eta = (remainingBytes > 0 ? remainingBytes : 0) / tc.averageSpeed;
+        const etaDate = new Date(eta * 1000);
+        const seconds = etaDate.getSeconds();
+        const minutes = etaDate.getMinutes();
+
+        if (minutes > 0) {
+          timeCalculation = `⏳ ETA: ${minutes} min ${seconds} sec`;
+        } else {
+          timeCalculation = `⏳ ETA: ${seconds.toFixed(0)} seconds`;
+        }
+      }
+      // console.log("\n==========================");
+      // console.dir({ ...tc, total });
+      // console.log("============================\n");
+
+      logProgress({ progress, timeCalculation });
+
       callback();
     },
   });

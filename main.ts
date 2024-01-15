@@ -49,14 +49,14 @@ try {
     initialValue: config.spotify.testAttack.toPlaylistURL,
   });
 
-  s.start("Fetching playlist data...");
+  s.start("Fetching playlist tracks");
   const res = await getPlaylistTracksByUserId(playlistId, {
     controller,
     token: tokenData.access_token,
     limit: 50,
     logProgress: ({ progress, offset, total, timeCalculation }) => {
       s.message(
-        `Fetching playlist data... ${progress}% (${offset}/${total}) | ${timeCalculation}`,
+        `Fetching playlist tracks: ${progress}% (${offset}/${total}) | ${timeCalculation}`,
       );
     },
   });
@@ -95,8 +95,8 @@ try {
     controller,
     playlistId,
     token: tokenData.access_token,
-    logProgress: (progress) => {
-      s.message(`Deleting tracks... ${progress}%`);
+    logProgress: ({ progress, timeCalculation }) => {
+      s.message(`Deleting tracks: ${progress}% | ${timeCalculation}`);
     },
   });
   s.stop();
