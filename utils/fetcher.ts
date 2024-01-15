@@ -2,6 +2,7 @@ import { setInterval, setTimeout } from "timers/promises";
 import { log as clackLog, confirm } from "@clack/prompts";
 import { config } from "@utils/env.ts";
 import { promptWrapper } from "@utils/prompt.ts";
+import { getTime, getTimeCalculation } from "@utils/get-time.ts";
 
 type HTTPMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 type HTTPMethodLowercase = "get" | "post" | "put" | "delete" | "patch";
@@ -78,7 +79,7 @@ async function displayRetryingMessage(
   const ms = seconds * 1000;
 
   let stop = true;
-  const { minutes } = getTime(ms / 1000);
+  const { minutes } = getTime(ms);
   if (minutes > 1) {
     setTimeout(10000).then(() => {
       if (stop) {
@@ -106,30 +107,6 @@ async function displayRetryingMessage(
   await logCountdown({ ms, log, interval: 10 * 1000 });
 }
 
-function getTime(timeInSeconds: number) {
-  const etaDate = new Date(timeInSeconds * 1000);
-  const seconds = etaDate.getSeconds();
-  const minutes = etaDate.getMinutes();
-  const hours = etaDate.getHours();
-  return { seconds, minutes, hours };
-}
-
-function getTimeCalculation({
-  hours,
-  minutes,
-  seconds,
-}: ReturnType<typeof getTime>) {
-  let timeCalculation = "";
-  if (hours > 1) {
-    timeCalculation = `⏳ ETA: ${hours} hours ${minutes} min ${seconds} sec`;
-  } else if (minutes > 0) {
-    timeCalculation = `⏳ ETA: ${minutes} min ${seconds} sec`;
-  } else {
-    timeCalculation = `⏳ ETA: ${seconds.toFixed(0)} seconds`;
-  }
-  return timeCalculation;
-}
-
 async function logCountdown({
   ms,
   interval = 1000,
@@ -143,7 +120,7 @@ async function logCountdown({
   setTimeout(ms).then(() => (stop = true));
 
   let remainingMs = ms;
-  const time = getTime(ms / 1000);
+  const time = getTime(ms);
   log(getTimeCalculation(time));
 
   for await (const _ of setInterval(interval)) {

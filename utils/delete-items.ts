@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fetcher } from "@utils/fetcher.ts";
 import { pipeline } from "stream/promises";
 import { Writable } from "node:stream";
+import { getTime, getTimeCalculation } from "@utils/get-time.ts";
 
 type Options = { token: string; playlistId: string };
 export async function deletePlaylistItems(
@@ -140,9 +141,6 @@ function getLoggerStream({
   return new Writable({
     objectMode: true,
     write(chunk, _encoding, callback) {
-      // console.log("\n==========================");
-      // console.log({ chunk });
-      // console.log("============================\n");
       const { offset } = z.object({ offset: z.number() }).parse(chunk);
       const total = trackIds.length;
       const progress = Math.round((offset / total) * 100);
@@ -158,19 +156,8 @@ function getLoggerStream({
         tc.averageSpeed = tc.totalBytes / elapsedSeconds;
         const remainingBytes = total - tc.totalBytes;
         const eta = (remainingBytes > 0 ? remainingBytes : 0) / tc.averageSpeed;
-        const etaDate = new Date(eta * 1000);
-        const seconds = etaDate.getSeconds();
-        const minutes = etaDate.getMinutes();
-
-        if (minutes > 0) {
-          timeCalculation = `⏳ ETA: ${minutes} min ${seconds} sec`;
-        } else {
-          timeCalculation = `⏳ ETA: ${seconds.toFixed(0)} seconds`;
-        }
+        timeCalculation = getTimeCalculation(getTime(eta * 1000));
       }
-      // console.log("\n==========================");
-      // console.dir({ ...tc, total });
-      // console.log("============================\n");
 
       logProgress({ progress, timeCalculation });
 

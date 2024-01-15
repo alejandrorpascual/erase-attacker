@@ -7,6 +7,7 @@ import { fetcher } from "@utils/fetcher.ts";
 import fsExtra from "fs-extra";
 import { tracksFilePath } from "~/init.ts";
 import { Writable } from "node:stream";
+import { getTime, getTimeCalculation } from "@utils/get-time.ts";
 
 const playlistTracksResponseSchema = z
   .object({
@@ -357,15 +358,8 @@ export function getLogProgressFromPlaylistTracksStream({
         tc.averageSpeed = tc.totalBytes / elapsedSeconds;
         const remainingBytes = total - tc.totalBytes;
         const eta = (remainingBytes > 0 ? remainingBytes : 0) / tc.averageSpeed;
-        const etaDate = new Date(eta * 1000);
-        const seconds = etaDate.getSeconds();
-        const minutes = etaDate.getMinutes();
 
-        if (minutes > 0) {
-          timeCalculation = `⏳ ETA: ${minutes} min ${seconds} sec`;
-        } else {
-          timeCalculation = `⏳ ETA: ${seconds.toFixed(0)} seconds`;
-        }
+        timeCalculation = getTimeCalculation(getTime(eta * 1000));
       }
 
       logProgress({ progress, offset, total, timeCalculation });

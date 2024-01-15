@@ -90,6 +90,10 @@ try {
     (userId) => res.userTracksMap.get(userId) ?? [],
   );
 
+  const tracksToStoreForVersionControl = [...res.userTracksMap.entries()]
+    .filter(([userId]) => !choices.includes(userId))
+    .flatMap(([, tracks]) => tracks);
+
   s.start("Deleting tracks...");
   const deleteRes = await deleteAllAttackerItems(tracksToDelete, {
     controller,
