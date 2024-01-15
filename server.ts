@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import open from "open";
 import { saveTokenToFile } from "./utils/token-storage.ts";
 import { getTokenResponse } from "./utils/get-token-response.ts";
+import { log } from "@clack/prompts";
 
 const app = new Hono();
 
@@ -37,14 +38,28 @@ export async function callbackHandler(c: Context) {
   return c.text("You're all set!");
 }
 
+// export function getServer() {
+//   return new Promise<ReturnType<typeof serve>>((resolve) => {
+//     const server = serve(app, ({ port }) => {
+//       if (config.env === "development") {
+//         console.log(`Server listening on http://localhost:${port}`);
+//       }
+//     });
+//
+//     resolve(server);
+//   });
+// }
 export function getServer() {
-  return new Promise<ReturnType<typeof serve>>((resolve) => {
-    const server = serve(app, ({ port }) => {
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port: config.port,
+    },
+    ({ port }) => {
       if (config.env === "development") {
-        console.log(`Server listening on http://localhost:${port}`);
+        log.info(`🚧 Server listening on http://localhost:${port}`);
       }
-    });
-
-    resolve(server);
-  });
+    },
+  );
+  return server;
 }

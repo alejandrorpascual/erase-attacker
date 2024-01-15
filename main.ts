@@ -1,30 +1,26 @@
 import { tracksFilePath } from "./init.ts";
-import "./utils/env.ts";
-import {
-  cancel,
-  intro,
-  text,
-  isCancel,
-  outro,
-  log,
-  spinner,
-  multiselect,
-} from "@clack/prompts";
+import { config } from "./utils/env.ts";
+import { intro, outro, log, spinner } from "@clack/prompts";
 import { getTokenFromFile } from "./utils/token-storage.ts";
 import { getServer } from "./server.ts";
 import { getPlaylistTracksByUserId } from "./utils/get-playlist-tracks.ts";
-import { getPlaylistId } from "./utils/general.ts";
-import { type TableUserConfig, table } from "table";
-import { green, yellow } from "kolorist";
 import fsExtra from "fs-extra/esm";
 import { checkIfTokenExpired } from "./utils/check-expiration.ts";
 import { refreshToken } from "./utils/refresh-token.ts";
-import invariant from "tiny-invariant";
-import { setInterval, setTimeout } from "timers/promises";
-import { z } from "zod";
 import { deleteAllAttackerItems } from "./utils/delete-items.ts";
+import { authenticate } from "./utils/auth.ts";
+import { getUsersDisplayNames } from "./utils/get-user-profile.ts";
+import { getPlaylistIdPrompt } from "./utils/prompts/get-playlist-id.ts";
+import { displayTable } from "./utils/prompts/display-table.ts";
+import { getAttackerUsernameChoices } from "./utils/prompts/attacker-choices.ts";
 
 let server: Awaited<ReturnType<typeof getServer>> | undefined;
+
+const controller = new AbortController();
+process.on("SIGINT", () => {
+  controller.abort();
+});
+
 try {
   intro(`🔥 Spotify Playlist Cleaner 🔥`);
   log.info(
@@ -32,33 +28,15 @@ try {
   );
 
   const s = spinner();
+
   let tokenData = await getTokenFromFile();
 
-  server = await getServer();
   if (!tokenData) {
+    server = getServer();
     log.info("You need to authenticate first.");
-    await fetch("http://localhost:3000");
-
     s.start("Waiting for token...");
-    let timeoutDone = false;
-    setTimeout(10_000).then(() => {
-      timeoutDone = true;
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for await (const _ of setInterval(500)) {
-      tokenData = await getTokenFromFile();
-      if (tokenData) {
-        break;
-      }
-      if (timeoutDone) {
-        cancel("Operation cancelled.");
-        process.exit(1);
-      }
-    }
+    tokenData = await authenticate();
     s.stop();
-
-    invariant(tokenData, "Token data should be defined.");
   }
 
   if (await checkIfTokenExpired(tokenData.last_generated)) {
@@ -67,32 +45,19 @@ try {
     });
   }
 
-  const playlistUrl = await text({
-    message: "Enter the playlist URL",
-    validate: (value) => {
-      try {
-        const url = new URL(value);
-        if (!url.hostname.includes("spotify.com")) {
-          return "Invalid URL";
-        }
-      } catch (e) {
-        return "Invalid URL";
-      }
-    },
+  const playlistId = await getPlaylistIdPrompt({
+    initialValue: config.spotify.testAttack.toPlaylistURL,
   });
-  //
-  if (isCancel(playlistUrl)) {
-    cancel("Operation cancelled.");
-    process.exit(0);
-  }
 
-  const playlistId = getPlaylistId(playlistUrl);
   s.start("Fetching playlist data...");
   const res = await getPlaylistTracksByUserId(playlistId, {
+    controller,
     token: tokenData.access_token,
     limit: 50,
-    logProgress: (progress) => {
-      s.message(`Fetching playlist data... ${progress}%`);
+    logProgress: ({ progress, offset, total, timeCalculation }) => {
+      s.message(
+        `Fetching playlist data... ${progress}% (${offset}/${total}) | ${timeCalculation}`,
+      );
     },
   });
   s.stop();
@@ -106,56 +71,28 @@ try {
     log.warn("Some tracks could not be fetched.");
   }
 
-  const final = [...res.userTracksMap.entries()]
-    .map(([userId, tracks]) => [userId, tracks.length] as const)
-    .toSorted((a, b) => b[1] - a[1])
-    .map(([userId, tracks]) => [userId, tracks.toString()] as const);
+  const userIds = [...res.userTracksMap.keys()];
 
-  const config: TableUserConfig = {
-    header: {
-      content: green("RESULTS"),
-      alignment: "center",
-    },
-  };
+  s.start("Fetching usernames...");
+  const userProfileMap = await getUsersDisplayNames(userIds, {
+    token: tokenData.access_token,
+  });
+  s.stop();
 
-  const tracks = [
-    ["User ID", "Tracks Added"].map((item) => yellow(item)),
-    ...final,
-  ];
-
-  // WARN: silly fix for typescript
-  console.log(table(tracks as string[][], config));
-
-  const choices = await multiselect({
-    message: "attacker?",
-    options: final.map(([userId, tracks], index) => {
-      const options: { label: string; value: string; hint?: string } = {
-        label: `${userId} (${tracks})`,
-        value: userId,
-        hint: undefined,
-      };
-
-      if (index === 0) {
-        options.hint = "probably the attacker";
-      }
-
-      return options;
-    }),
+  const final = displayTable({
+    userTracksMap: res.userTracksMap,
+    userProfileMap,
   });
 
-  if (isCancel(choices)) {
-    cancel("Operation cancelled.");
-    process.exit(0);
-  }
+  const choices = await getAttackerUsernameChoices(final);
 
-  const parsedChoices = z.string().array().parse(choices);
-
-  const tracksToDelete = parsedChoices.flatMap(
+  const tracksToDelete = choices.flatMap(
     (userId) => res.userTracksMap.get(userId) ?? [],
   );
 
   s.start("Deleting tracks...");
   const deleteRes = await deleteAllAttackerItems(tracksToDelete, {
+    controller,
     playlistId,
     token: tokenData.access_token,
     logProgress: (progress) => {

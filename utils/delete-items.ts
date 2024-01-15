@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fetcher } from "./fetcher.ts";
 import { pipeline } from "stream/promises";
+import { Writable } from "node:stream";
 
 type Options = { token: string; playlistId: string };
 export async function deletePlaylistItems(
@@ -41,11 +42,23 @@ export async function deleteAllAttackerItems(
     token,
     playlistId,
     logProgress,
-  }: Options & { logProgress?: (progress: number) => void },
+    limit = 100,
+    controller,
+  }: Options & {
+    limit?: number;
+    logProgress: (progress: number) => void;
+    controller: AbortController;
+  },
 ) {
   async function* sourceStream() {
-    for (let i = 0; i < trackIds.length; i += 100) {
-      yield { slice: trackIds.slice(i, i + 100), offset: i };
+    const rest = trackIds.length % limit;
+
+    for (let i = 0; i < trackIds.length; i += limit) {
+      yield { slice: trackIds.slice(i, i + limit), offset: i };
+    }
+
+    if (rest > 0 && rest < limit) {
+      yield { slice: trackIds.slice(-rest), offset: trackIds.length - rest };
     }
   }
 
@@ -54,25 +67,15 @@ export async function deleteAllAttackerItems(
   try {
     await pipeline(
       sourceStream,
+      getDeleteGenerator({ token, playlistId }),
       async function* (stream) {
-        for await (const { slice, offset } of stream) {
-          const res = await deletePlaylistItems(slice, { token, playlistId });
-          if (res.type === "error") {
-            continue;
-          }
-
-          yield { snapshot_id: res.data.snapshot_id, offset };
+        for await (const { snapshot_id, offset } of stream) {
+          snapshotId = snapshot_id;
+          yield { offset };
         }
       },
-      logProgress
-        ? async function* (stream) {
-            for await (const { snapshot_id, offset } of stream) {
-              const progress = Math.round((offset / trackIds.length) * 100);
-              logProgress(progress);
-              snapshotId = yield snapshot_id;
-            }
-          }
-        : process.stderr,
+      getLoggerStream({ trackIds, logProgress }),
+      { signal: controller.signal },
     );
 
     return { type: "success", data: { snapshot_id: snapshotId } } as const;
@@ -83,4 +86,37 @@ export async function deleteAllAttackerItems(
 
     return { type: "error", message: "Unknown error" } as const;
   }
+}
+
+function getDeleteGenerator({ token, playlistId }: Options) {
+  return async function* (
+    stream: AsyncIterable<{ slice: string[]; offset: number }>,
+  ) {
+    for await (const { slice, offset } of stream) {
+      const res = await deletePlaylistItems(slice, { token, playlistId });
+      if (res.type === "error") {
+        continue;
+      }
+
+      yield { snapshot_id: res.data.snapshot_id, offset };
+    }
+  };
+}
+
+function getLoggerStream({
+  trackIds,
+  logProgress,
+}: {
+  trackIds: string[];
+  logProgress: (progress: number) => void;
+}) {
+  return new Writable({
+    objectMode: true,
+    write(chunk, _encoding, callback) {
+      const { offset } = z.object({ offset: z.number() }).parse(chunk);
+      const progress = Math.round((offset / trackIds.length) * 100);
+      logProgress(progress);
+      callback();
+    },
+  });
 }

@@ -8,7 +8,7 @@ const saveTokenSchema = z.object({
   last_generated: z.string().transform((date) => new Date(date)),
 });
 
-type SaveToken = z.infer<typeof saveTokenSchema>;
+export type SaveToken = z.infer<typeof saveTokenSchema>;
 
 export async function saveTokenToFile(
   data: SaveToken,

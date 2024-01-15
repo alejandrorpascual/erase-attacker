@@ -4,7 +4,9 @@ import { saveTokenToFile } from "./token-storage.ts";
 
 const refreshTokenSchema = z.object({
   access_token: z.string(),
-  refresh_token: z.string(),
+  token_type: z.literal("Bearer"),
+  scope: z.string(),
+  expires_in: z.number(),
 });
 
 export async function getNewToken({
@@ -12,21 +14,38 @@ export async function getNewToken({
 }: {
   refresh_token: string;
 }) {
-  const url = "https://accounts.spotify.com/api/token";
+  const url = new URL("https://accounts.spotify.com/api/token");
 
-  const payload = {
+  const body = {
+    grant_type: "refresh_token",
+    refresh_token,
+  };
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
+      Authorization:
+        "Basic " +
+        Buffer.from(
+          config.spotify.clientId + ":" + config.spotify.clientSecret,
+        ).toString("base64"),
     },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refresh_token,
-      client_id: config.spotify.clientId,
-    }),
-  };
-  const body = await fetch(url, payload);
-  return refreshTokenSchema.parse(await body.json());
+    body: new URLSearchParams(body),
+  });
+
+  if (response.status !== 200) {
+    console.error("Error while refreshing token");
+    console.error({ refresh_token });
+    console.error("Status code:", response.status);
+    console.error("Message:", response.statusText);
+    console.error("Body:", await response.json());
+
+    throw new Error("‼️ Error while refreshing token");
+  }
+
+  const jsonResponse = await response.json();
+  return refreshTokenSchema.parse(jsonResponse);
 }
 
 export async function refreshToken({
@@ -38,6 +57,7 @@ export async function refreshToken({
   const last_generated = new Date();
   const newTokenData = {
     last_generated,
+    refresh_token,
     ...tokenData,
   };
 

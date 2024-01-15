@@ -7,6 +7,8 @@ const BASE_API_URL = "https://api.spotify.com";
 export const spotifyEnvSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string(),
   SPOTIFY_CLIENT_SECRET: z.string(),
+  FROM_PLAYLIST_URL: z.string(),
+  TO_PLAYLIST_URL: z.string(),
 });
 
 const schema = z
@@ -24,6 +26,7 @@ declare global {
 }
 
 const parsedEnv = schema.safeParse(process.env);
+process.env.dd;
 
 if (!parsedEnv.success) {
   console.log(
@@ -38,12 +41,19 @@ if (!parsedEnv.success) {
 
 const processedEnv = parsedEnv.data;
 
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const config = {
   env: processedEnv.NODE_ENV,
+  port: PORT,
+  serverUri: `http://localhost:${PORT}`,
   spotify: {
     clientId: processedEnv.SPOTIFY_CLIENT_ID,
     clientSecret: processedEnv.SPOTIFY_CLIENT_SECRET,
-    redirectUri: `http://localhost:3000/${REDIRECT_PATH}`,
+    testAttack: {
+      fromPlaylistURL: process.env.FROM_PLAYLIST_URL,
+      toPlaylistURL: process.env.TO_PLAYLIST_URL,
+    },
+    redirectUri: `http://localhost:${PORT}/${REDIRECT_PATH}`,
     baseApiUrl: BASE_API_URL,
   },
 };
