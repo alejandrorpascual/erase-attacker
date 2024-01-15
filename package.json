@@ -26,6 +26,7 @@
     "@clack/prompts": "^0.7.0",
     "@hono/node-server": "^1.4.0",
     "@hono/oauth-providers": "^0.3.0",
+    "execa": "^8.0.1",
     "fs-extra": "^11.2.0",
     "hono": "^3.12.3",
     "kolorist": "^1.8.0",

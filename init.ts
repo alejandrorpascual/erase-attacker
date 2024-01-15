@@ -13,3 +13,4 @@ const DEFAULT_TRACKS_FILENAME = "tracks.json";
 
 export const tokenFilePath = path.join(process.cwd(), DEFAULT_TOKEN_FILENAME);
 export const tracksFilePath = path.join(process.cwd(), DEFAULT_TRACKS_FILENAME);
+
