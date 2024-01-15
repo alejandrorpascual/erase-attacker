@@ -7,16 +7,24 @@ import path from "node:path";
 import { select } from "@clack/prompts";
 import { promptWrapper } from "@utils/prompt.ts";
 import invariant from "tiny-invariant";
+import { pipeline } from "node:stream/promises";
+import {
+  TimeCalculation,
+  getFilterOutErrorsGenerator,
+  getSourcePlaylistTracksGenerator,
+  logPlaylistTracksStreamProgress,
+} from "@utils/get-playlist-tracks.ts";
+import { getPlaylistDetails } from "@utils/get-playlist-details.ts";
+import { getTokenDataFromFile } from "@utils/get-token-data.ts";
 
 const gitRepoPath = path.join(os.homedir(), "spotify-playlists");
 
 export async function createReadStreamFromPlaylistChoice(playlistId: string) {
-  // get existing playlist files
   const files = await getExistingPlaylistFiles({ playlistId });
-  // prompt the user to select
+  let choice: string | null = null;
+
   if (files.length === 0) return;
 
-  let choice: string | null = null;
   if (files.length === 1) {
     const [file] = files;
     invariant(file, "File should exist");
@@ -48,7 +56,64 @@ export async function createReadStreamFromPlaylistChoice(playlistId: string) {
     );
   }
   if (!choice) return;
-  return fs.createReadStream(path.join(gitRepoPath, choice));
+  return path.join(gitRepoPath, choice);
+}
+
+export async function storePlaylist(
+  playlistId: string,
+  {
+    token,
+    logProgress,
+    ...options
+  }: {
+    limit?: number;
+    token: string;
+    logProgress(input: {
+      progress: number;
+      offset: number;
+      total: number;
+      timeCalculation: string;
+    }): void;
+  },
+) {
+  const res = await getPlaylistDetails(playlistId, { token });
+  if (res.type === "error") return res;
+
+  const limit = options.limit ?? 50;
+  const { total } = res.data.tracks;
+  const { name: playlistName } = res.data;
+
+  const timeCalculation: TimeCalculation = {
+    startTime: Date.now(),
+    averageSpeed: 0,
+    iteration: 0,
+    totalBytes: 0,
+  };
+
+  await fsExtra.ensureDir(gitRepoPath);
+
+  await pipeline(
+    getSourcePlaylistTracksGenerator({ total, limit, token, playlistId }),
+    getFilterOutErrorsGenerator([]),
+    async function* (stream) {
+      for await (const chunk of stream) {
+        logPlaylistTracksStreamProgress(chunk, {
+          total,
+          logProgress,
+          timeCalculation,
+        });
+        yield chunk;
+      }
+    },
+    async function* (stream) {
+      for await (const chunk of stream) {
+        yield chunk.res.data.items.map((item) => item.track.id).join("\n");
+      }
+    },
+    fs.createWriteStream(
+      path.join(gitRepoPath, `${playlistId}_${playlistName}.txt`),
+    ),
+  );
 }
 
 export async function createRepo() {
@@ -106,7 +171,7 @@ export async function createPlaylistFile({
     `${playlistId}_${playlistName}.txt`,
   );
 
-  await fsExtra.ensureFile(playlistFilePath);
+  return fsExtra.ensureFile(playlistFilePath);
 }
 
 export async function getExistingPlaylistFiles({
@@ -126,3 +191,12 @@ export async function getExistingPlaylistFiles({
   );
   return stats.toSorted((a, b) => b.mtime - a.mtime).map((stat) => stat.file);
 }
+
+storePlaylist("2zffrd9L3584PhQT79EbXb", {
+  token: (await getTokenDataFromFile()).access_token,
+  logProgress: (input) => {
+    console.log(
+      `${input.progress}% (${input.offset}/${input.total}) | ${input.timeCalculation}`,
+    );
+  },
+});

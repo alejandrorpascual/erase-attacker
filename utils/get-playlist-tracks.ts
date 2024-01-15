@@ -90,7 +90,8 @@ export async function getPlaylistTracksByUserId(
 
   await pipeline(
     getSourcePlaylistTracksGenerator({ total, playlistId, token, limit }),
-    getStoreInMapGenerator({ errors, userTracksMap }),
+    getFilterOutErrorsGenerator(errors),
+    getStoreInMapGenerator({ userTracksMap }),
     getStoreTracksGenerator({ storeTracks, userTracksMap }),
     getLogProgressFromPlaylistTracksStream({
       total,
@@ -144,7 +145,7 @@ export async function isPlaylistCollaborative(
   } as const;
 }
 
-type InitialStream = AsyncIterable<{
+export type InitialPlaylistTracksStream = AsyncIterable<{
   offset: number;
   res:
     | {
@@ -285,20 +286,26 @@ export function getConcurrentSourcePlaylistTracksGenerator({
   };
 }
 
-function getStoreInMapGenerator({
-  errors,
-  userTracksMap,
-}: {
-  errors: number[];
-  userTracksMap: Map<string, string[]>;
-}) {
-  return async function* (stream: InitialStream) {
+export function getFilterOutErrorsGenerator(errors: number[]) {
+  return async function* filterOutErrors(stream: InitialPlaylistTracksStream) {
     for await (const { res, offset } of stream) {
       if (res.type === "error") {
         errors.push(offset);
         continue;
       }
 
+      yield { res, offset };
+    }
+  };
+}
+
+function getStoreInMapGenerator({
+  userTracksMap,
+}: {
+  userTracksMap: Map<string, string[]>;
+}) {
+  return async function* (stream: SuccessStream) {
+    for await (const { res, offset } of stream) {
       for (const item of res.data.items) {
         const userId = item.added_by?.id;
         if (!userId) continue;
@@ -342,31 +349,59 @@ export function getLogProgressFromPlaylistTracksStream({
   return new Writable({
     objectMode: true,
     write(chunk, _encoding, callback) {
-      const { offset, res } = z
-        .object({ offset: z.number(), res: playlistTracksResponseSchema })
-        .parse(chunk);
-      const progress = Math.round((offset / total) * 100);
-
-      tc.totalBytes += res.items.length;
-      tc.iteration++;
-
-      let timeCalculation: string | null = null;
-      if (tc.iteration <= 10) {
-        timeCalculation = "🧮 Calculating ETA";
-      } else {
-        const elapsedSeconds = (Date.now() - tc.startTime) / 1000;
-        tc.averageSpeed = tc.totalBytes / elapsedSeconds;
-        const remainingBytes = total - tc.totalBytes;
-        const eta = (remainingBytes > 0 ? remainingBytes : 0) / tc.averageSpeed;
-
-        timeCalculation = getTimeCalculation(getTime(eta * 1000));
-      }
-
-      logProgress({ progress, offset, total, timeCalculation });
+      logPlaylistTracksStreamProgress(chunk, {
+        total,
+        logProgress,
+        timeCalculation: tc,
+      });
 
       callback();
     },
   });
+}
+export async function logPlaylistTracksStreamProgress(
+  chunk: unknown,
+  {
+    total,
+    logProgress,
+    timeCalculation: tc,
+  }: {
+    total: number;
+    logProgress: ({
+      progress,
+      offset,
+      total,
+      timeCalculation,
+    }: {
+      progress: number;
+      offset: number;
+      total: number;
+      timeCalculation: string;
+    }) => void;
+    timeCalculation: TimeCalculation;
+  },
+) {
+  const { offset, res } = z
+    .object({ offset: z.number(), res: playlistTracksResponseSchema })
+    .parse(chunk);
+  const progress = Math.round((offset / total) * 100);
+
+  tc.totalBytes += res.items.length;
+  tc.iteration++;
+
+  let timeCalculation: string | null = null;
+  if (tc.iteration <= 10) {
+    timeCalculation = "🧮 Calculating ETA";
+  } else {
+    const elapsedSeconds = (Date.now() - tc.startTime) / 1000;
+    tc.averageSpeed = tc.totalBytes / elapsedSeconds;
+    const remainingBytes = total - tc.totalBytes;
+    const eta = (remainingBytes > 0 ? remainingBytes : 0) / tc.averageSpeed;
+
+    timeCalculation = getTimeCalculation(getTime(eta * 1000));
+  }
+
+  logProgress({ progress, offset, total, timeCalculation });
 }
 
 function getStoreTracksGenerator({
