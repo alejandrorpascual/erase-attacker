@@ -1,18 +1,18 @@
-import { tracksFilePath } from "./init.ts";
-import { config } from "./utils/env.ts";
-import { intro, outro, log, spinner } from "@clack/prompts";
-import { getTokenFromFile } from "./utils/token-storage.ts";
-import { getServer } from "./server.ts";
-import { getPlaylistTracksByUserId } from "./utils/get-playlist-tracks.ts";
+import { tracksFilePath } from "~/init.ts";
+import { config } from "@utils/env.ts";
+import { intro, log, outro, spinner } from "@clack/prompts";
+import { authenticate } from "@utils/auth.ts";
+import { checkIfTokenExpired } from "@utils/check-expiration.ts";
+import { refreshToken } from "@utils/refresh-token.ts";
+import { getTokenFromFile } from "@utils/token-storage.ts";
+import { getServer } from "~/server.ts";
+import { getPlaylistIdPrompt } from "@utils/prompts/get-playlist-id.ts";
+import { getPlaylistTracksByUserId } from "@utils/get-playlist-tracks.ts";
+import { getUsersDisplayNames } from "@utils/get-user-profile.ts";
+import { displayTable } from "@utils/prompts/display-table.ts";
+import { getAttackerUsernameChoices } from "@utils/prompts/attacker-choices.ts";
+import { deleteAllAttackerItems } from "@utils/delete-items.ts";
 import fsExtra from "fs-extra/esm";
-import { checkIfTokenExpired } from "./utils/check-expiration.ts";
-import { refreshToken } from "./utils/refresh-token.ts";
-import { deleteAllAttackerItems } from "./utils/delete-items.ts";
-import { authenticate } from "./utils/auth.ts";
-import { getUsersDisplayNames } from "./utils/get-user-profile.ts";
-import { getPlaylistIdPrompt } from "./utils/prompts/get-playlist-id.ts";
-import { displayTable } from "./utils/prompts/display-table.ts";
-import { getAttackerUsernameChoices } from "./utils/prompts/attacker-choices.ts";
 
 let server: Awaited<ReturnType<typeof getServer>> | undefined;
 

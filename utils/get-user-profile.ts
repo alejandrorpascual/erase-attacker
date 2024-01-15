@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fetcher } from "./fetcher.ts";
+import { fetcher } from "@utils/fetcher.ts";
 
 const userProfileSchema = z.object({
   display_name: z.string().nullable(),

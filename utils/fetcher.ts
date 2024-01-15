@@ -1,7 +1,7 @@
 import { setInterval, setTimeout } from "timers/promises";
-import { config } from "./env.ts";
 import { log as clackLog, confirm } from "@clack/prompts";
-import { promptWrapper } from "./prompt.ts";
+import { config } from "@utils/env.ts";
+import { promptWrapper } from "@utils/prompt.ts";
 
 type HTTPMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 type HTTPMethodLowercase = "get" | "post" | "put" | "delete" | "patch";

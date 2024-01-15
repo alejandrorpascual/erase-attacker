@@ -1,8 +1,8 @@
 import { setInterval, setTimeout } from "timers/promises";
 import { log } from "@clack/prompts";
-import { SaveToken, getTokenFromFile } from "./token-storage.ts";
+import { SaveToken, getTokenFromFile } from "@utils/token-storage.ts";
 import invariant from "tiny-invariant";
-import { config } from "./env.ts";
+import { config } from "@utils/env.ts";
 
 export async function authenticate() {
   await fetch(config.serverUri);

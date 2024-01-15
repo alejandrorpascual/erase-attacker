@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fetcher } from "./fetcher.ts";
+import { fetcher } from "@utils/fetcher.ts";
 import { pipeline } from "stream/promises";
 import { Writable } from "node:stream";
 

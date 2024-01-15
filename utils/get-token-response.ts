@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { config } from "./env.ts";
+import { config } from "@utils/env.ts";
 
 export const tokenResponseSchema = z.object({
   access_token: z.string(),

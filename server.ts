@@ -1,11 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono, type Context } from "hono";
-import { REDIRECT_PATH, config } from "./utils/env.ts";
-import { scopes } from "./utils/scopes.ts";
+import { REDIRECT_PATH, config } from "@utils/env.ts";
+import { scopes } from "@utils/scopes.ts";
 import { randomUUID } from "node:crypto";
 import open from "open";
-import { saveTokenToFile } from "./utils/token-storage.ts";
-import { getTokenResponse } from "./utils/get-token-response.ts";
+import { saveTokenToFile } from "@utils/token-storage.ts";
+import { getTokenResponse } from "@utils/get-token-response.ts";
 import { log } from "@clack/prompts";
 
 const app = new Hono();
@@ -38,17 +38,6 @@ export async function callbackHandler(c: Context) {
   return c.text("You're all set!");
 }
 
-// export function getServer() {
-//   return new Promise<ReturnType<typeof serve>>((resolve) => {
-//     const server = serve(app, ({ port }) => {
-//       if (config.env === "development") {
-//         console.log(`Server listening on http://localhost:${port}`);
-//       }
-//     });
-//
-//     resolve(server);
-//   });
-// }
 export function getServer() {
   const server = serve(
     {

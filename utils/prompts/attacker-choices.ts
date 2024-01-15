@@ -1,5 +1,5 @@
 import { multiselect } from "@clack/prompts";
-import { promptWrapper } from "../prompt.ts";
+import { promptWrapper } from "@utils/prompt.ts";
 import { z } from "zod";
 
 export async function getAttackerUsernameChoices(

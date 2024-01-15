@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { config } from "./env.ts";
-import { saveTokenToFile } from "./token-storage.ts";
+import { config } from "@utils/env.ts";
+import { saveTokenToFile } from "@utils/token-storage.ts";
 
 const refreshTokenSchema = z.object({
   access_token: z.string(),

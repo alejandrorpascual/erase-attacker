@@ -1,15 +1,15 @@
-import "./init.ts";
-import { config } from "./utils/env.ts";
+import "~/init.ts";
+import { config } from "@utils/env.ts";
 import { intro, log, outro, spinner } from "@clack/prompts";
-import { simulateAttack } from "./utils/add-songs.ts";
-import { getPlaylistIdPrompt } from "./utils/prompts/get-playlist-id.ts";
-import { getTokenFromFile } from "./utils/token-storage.ts";
-import { getServer } from "./server.ts";
-import { authenticate } from "./utils/auth.ts";
-import { checkIfTokenExpired } from "./utils/check-expiration.ts";
-import { refreshToken } from "./utils/refresh-token.ts";
 import { bold } from "kolorist";
-import { getPlaylistTracks } from "./utils/get-playlist-tracks.ts";
+import { getServer } from "~/server.ts";
+import { getTokenFromFile } from "@utils/token-storage.ts";
+import { authenticate } from "@utils/auth.ts";
+import { checkIfTokenExpired } from "@utils/check-expiration.ts";
+import { refreshToken } from "@utils/refresh-token.ts";
+import { getPlaylistIdPrompt } from "@utils/prompts/get-playlist-id.ts";
+import { getPlaylistTracks } from "@utils/get-playlist-tracks.ts";
+import { simulateAttack } from "@utils/add-songs.ts";
 
 const s = spinner();
 let server: Awaited<ReturnType<typeof getServer>> | undefined;

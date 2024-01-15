@@ -1,6 +1,6 @@
 import { z } from "zod";
 import fsExtra from "fs-extra";
-import { tokenFilePath } from "../init.ts";
+import { tokenFilePath } from "~/init.ts";
 
 const saveTokenSchema = z.object({
   access_token: z.string(),

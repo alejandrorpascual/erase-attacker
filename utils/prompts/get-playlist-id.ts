@@ -1,6 +1,6 @@
 import { text } from "@clack/prompts";
-import { getPlaylistId } from "../general.ts";
-import { promptWrapper } from "../prompt.ts";
+import { getPlaylistId } from "@utils/general.ts";
+import { promptWrapper } from "@utils/prompt.ts";
 
 export async function getPlaylistIdPrompt({
   message = "Enter the playlist URL",

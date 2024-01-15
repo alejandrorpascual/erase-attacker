@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { fetcher } from "./fetcher.ts";
+import { fetcher } from "@utils/fetcher.ts";
 import { pipeline } from "stream/promises";
 import {
   getConcurrentSourcePlaylistTracksGenerator,
   getLogProgressFromPlaylistTracksStream,
-} from "./get-playlist-tracks.ts";
+} from "@utils/get-playlist-tracks.ts";
 
 export async function addSongsToPlaylist(
   trackIds: string[],

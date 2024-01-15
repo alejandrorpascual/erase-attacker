@@ -1,11 +1,11 @@
-import { paginationResponseSchema } from "../spotify-responses/pagination.ts";
-import { trackResponseSchema } from "../spotify-responses/track.ts";
-import { userResponseSchema } from "../spotify-responses/user.ts";
+import { paginationResponseSchema } from "~/spotify-responses/pagination.ts";
+import { trackResponseSchema } from "~/spotify-responses/track.ts";
+import { userResponseSchema } from "~/spotify-responses/user.ts";
 import { z } from "zod";
 import { pipeline } from "node:stream/promises";
-import { fetcher } from "./fetcher.ts";
+import { fetcher } from "@utils/fetcher.ts";
 import fsExtra from "fs-extra";
-import { tracksFilePath } from "../init.ts";
+import { tracksFilePath } from "~/init.ts";
 import { Writable } from "node:stream";
 
 const playlistTracksResponseSchema = z
