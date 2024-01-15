@@ -1,6 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+process.on("SIGINT", () => {
+  process.exit();
+});
+
+process.on("SIGTERM", () => {
+  process.exit();
+});
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const here = (...p: string[]) => path.join(__dirname, ...p);
 

@@ -6,6 +6,9 @@ import { promptWrapper } from "./prompt.ts";
 type HTTPMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 type HTTPMethodLowercase = "get" | "post" | "put" | "delete" | "patch";
 
+const controller = new AbortController();
+const { signal } = controller;
+
 export async function fetcher(
   pathname: string,
   {
@@ -47,6 +50,7 @@ export async function fetcher(
     headers,
     method: options.method ?? "GET",
     body: options.body,
+    signal,
   });
 
   if (response.status === 429) {
