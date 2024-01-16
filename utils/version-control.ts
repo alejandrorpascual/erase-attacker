@@ -16,19 +16,49 @@ import { config } from "@utils/env.ts";
 type CommitAction = "update" | "create" | "delete";
 
 const gitRepoPath = config.spotify.gitRepoPath;
+type StorePlaylistInputBase = {
+  trackIds: string[];
+  playlistId: string;
+  commitAction: CommitAction;
+  repoPath?: string;
+};
 export async function storePlaylist({
   trackIds,
   playlistId,
   commitAction,
-}: {
-  trackIds: string[];
-  playlistId: string;
-  commitAction: CommitAction;
-}) {
+  playlistName,
+  token,
+  repoPath,
+}: StorePlaylistInputBase &
+  (
+    | {
+        playlistName?: undefined;
+        token: string;
+      }
+    | {
+        playlistName: string;
+        token?: undefined;
+      }
+  )) {
+  if (!playlistName && token) {
+    const res = await getPlaylistDetails(playlistId, { token });
+    if (res.type === "error") {
+      playlistName = "unknown";
+    } else {
+      playlistName = res.data.name;
+    }
+  }
+
+  if (!playlistName) {
+    playlistName = "unknown";
+  }
+
   const playlistFilePath = await createPlaylistFile({
     playlistId,
-    playlistName: playlistId,
+    playlistName,
+    repoPath,
   });
+
   await fsP.writeFile(playlistFilePath, trackIds.join("\n"));
   await commitChanges({ playlistId, snapshotId: "initial", commitAction });
 }

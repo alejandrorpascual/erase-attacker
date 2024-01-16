@@ -13,6 +13,8 @@ import { displayTable } from "@utils/prompts/display-table.ts";
 import { getAttackerUsernameChoices } from "@utils/prompts/attacker-choices.ts";
 import { deleteAllAttackerItems } from "@utils/delete-items.ts";
 import fsExtra from "fs-extra/esm";
+import { askToStoreInVersionControl } from "@utils/prompts/ask-to-store-version.ts";
+import { storePlaylist } from "@utils/version-control.ts";
 
 let server: Awaited<ReturnType<typeof getServer>> | undefined;
 
@@ -113,6 +115,19 @@ try {
   log.success(
     `${tracksToDelete.length} Tracks deleted! Snapshot ID: ${deleteRes.data.snapshot_id}`,
   );
+
+  const result = await askToStoreInVersionControl();
+  if (result.type === "store") {
+    const repoPath = result.path;
+
+    await storePlaylist({
+      playlistId,
+      trackIds: tracksToStoreForVersionControl,
+      commitAction: "create",
+      repoPath,
+      token: tokenData.access_token,
+    });
+  }
 
   outro(`✅ Done!`);
 } finally {
