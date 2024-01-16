@@ -4,7 +4,7 @@ import fsExtra from "fs-extra/esm";
 import fsP from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
-import { select, spinner } from "@clack/prompts";
+import { select } from "@clack/prompts";
 import { promptWrapper } from "@utils/prompt.ts";
 import invariant from "tiny-invariant";
 import { pipeline } from "node:stream/promises";
@@ -15,10 +15,8 @@ import {
   logPlaylistTracksStreamProgress,
 } from "@utils/get-playlist-tracks.ts";
 import { getPlaylistDetails } from "@utils/get-playlist-details.ts";
-import { getTokenDataFromFile } from "@utils/get-token-data.ts";
-import { setTimeout } from "node:timers/promises";
 
-const gitRepoPath = path.join(os.homedir(), "spotify-playlists");
+export const gitRepoPath = path.join(os.homedir(), "spotify-playlists");
 
 export async function createReadStreamFromPlaylistChoice(playlistId: string) {
   const files = await getExistingPlaylistFiles({ playlistId });
@@ -129,14 +127,11 @@ export async function createRepo() {
   await fsExtra.ensureDir(gitRepoPath);
   const isGitRepo = await checkIfRepoExists();
   if (!isGitRepo) {
-    try {
-      await execa("git", ["init"], {
-        cwd: gitRepoPath,
-        cleanup: true,
-      });
-    } catch (e) {
-      console.error("EXECA ERRORED: ", e);
-    }
+    const { stdout } = await execaCommand("git init", {
+      cwd: gitRepoPath,
+      stdio: "inherit",
+    });
+    console.log(stdout);
   }
 }
 
@@ -160,12 +155,11 @@ export async function commitChanges({
   await execaCommand("git add .", {
     cwd: gitRepoPath,
   });
-  await execaCommand(
-    `git commit -m "chore: update tracks [ID: ${playlistId}, SNAPSHOT: ${snapshotId}]"`,
-    {
-      cwd: gitRepoPath,
-    },
-  );
+
+  const commitMessage = `"chore: update tracks ID=${playlistId}, SNAPSHOT=${snapshotId}"`;
+  await execa("git", ["commit", "-m", commitMessage], {
+    cwd: gitRepoPath,
+  });
 }
 
 export async function createPlaylistFile({
@@ -206,38 +200,54 @@ export async function getExistingPlaylistFiles({
   return stats.toSorted((a, b) => b.mtime - a.mtime).map((stat) => stat.file);
 }
 
-try {
-  const playlistId = "2zffrd9L3584PhQT79EbXb";
-  await createRepo();
-  throw new Error("test");
-
-  const s = spinner();
-  s.start("Storing playlist...");
-  const res = await storePlaylist(playlistId, {
-    token: (await getTokenDataFromFile()).access_token,
-    logProgress: (input) => {
-      s.message(
-        `${input.progress}% (${input.offset}/${input.total}) | ${input.timeCalculation}`,
-      );
-    },
-  });
-  s.stop();
-  if (res.type === "error") {
-    console.log(" ============== THERE WAS AN ERROR ===================");
-    console.error(res.response);
-    console.log(" ============== ****************** ===================");
-    process.exit(1);
-  }
-
-  s.start("Committing changes...");
-  await setTimeout(1000);
-  await commitChanges({
-    playlistId,
-    snapshotId: res.data.snapshot_id,
-  });
-  s.stop();
-} catch (e) {
-  console.log(" ============== THERE WAS AN ERROR ===================");
-  console.error(e);
-  await fsExtra.emptyDir(gitRepoPath);
-}
+// (async () => {
+//   const playlistId = "2zffrd9L3584PhQT79EbXb";
+//   await fsExtra.ensureDir(gitRepoPath);
+//   const childProcess = execaCommandSync("git init", {
+//     cwd: gitRepoPath,
+//     stdio: "inherit",
+//   });
+//   console.log(childProcess);
+//   throw new Error("test");
+// })();
+// try {
+//   main()
+//   const playlistId = "2zffrd9L3584PhQT79EbXb";
+//   await fsExtra.ensureDir(gitRepoPath);
+//   const childProcess = execaCommandSync("git init", {
+//     cwd: gitRepoPath,
+//     stdio: "inherit"
+//   });
+//   console.log(childProcess);
+//   throw new Error("test");
+//
+//   const s = spinner();
+//   s.start("Storing playlist...");
+//   const res = await storePlaylist(playlistId, {
+//     token: (await getTokenDataFromFile()).access_token,
+//     logProgress: (input) => {
+//       s.message(
+//         `${input.progress}% (${input.offset}/${input.total}) | ${input.timeCalculation}`,
+//       );
+//     },
+//   });
+//   s.stop();
+//   if (res.type === "error") {
+//     console.log(" ============== THERE WAS AN ERROR ===================");
+//     console.error(res.response);
+//     console.log(" ============== ****************** ===================");
+//     process.exit(1);
+//   }
+//
+//   s.start("Committing changes...");
+//   await setTimeout(1000);
+//   await commitChanges({
+//     playlistId,
+//     snapshotId: res.data.snapshot_id,
+//   });
+//   s.stop();
+// } catch (e) {
+//   console.log(" ============== THERE WAS AN ERROR ===================");
+//   console.error(e);
+//   await fsExtra.emptyDir(gitRepoPath);
+// }
