@@ -3,6 +3,7 @@ import fsExtra from "fs-extra/esm";
 import fsP from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { pipeline } from "node:stream/promises";
 import {
   TimeCalculation,
@@ -73,6 +74,7 @@ export async function storePlaylistInChunks(
   }: {
     limit?: number;
     token: string;
+    signal?: AbortSignal;
     repoPath?: string;
     logProgress(input: {
       progress: number;
@@ -97,6 +99,7 @@ export async function storePlaylistInChunks(
   };
 
   await fsExtra.ensureDir(repoPath);
+  const filePath = path.join(repoPath, `${playlistId}_${playlistName}.txt`);
 
   await pipeline(
     getSourcePlaylistTracksGenerator({ total, limit, token, playlistId }),
@@ -122,12 +125,14 @@ export async function storePlaylistInChunks(
         yield chunk.offset > 0 ? "\n" + res : res;
       }
     },
-    fs.createWriteStream(
-      path.join(repoPath, `${playlistId}_${playlistName}.txt`),
-    ),
+    fs.createWriteStream(filePath),
+    { signal: options.signal },
   );
 
-  return res;
+  return {
+    type: res.type,
+    data: { snapshotId: res.data.snapshot_id, playlistName, filePath },
+  };
 }
 
 export async function createRepo({
@@ -150,6 +155,48 @@ export async function createRepo({
 export async function checkIfRepoExists(repoPath = gitRepoPath) {
   const isGitRepo = await fsExtra.pathExists(path.join(repoPath, ".git"));
   return isGitRepo;
+}
+
+const userConfigDirPath = path.join(os.homedir(), ".config", "spotify");
+export async function storeCustomUserPathToRepo(repoPath: string) {
+  await fsExtra.ensureDir(userConfigDirPath);
+  const repoPathExists = await fsExtra.pathExists(repoPath);
+  if (!repoPathExists) {
+    return {
+      type: "error",
+      message: `Path ${repoPath} does not exist`,
+    } as const;
+  }
+
+  try {
+    await fsP.writeFile(
+      path.join(userConfigDirPath, "git-repo-path.txt"),
+      repoPath,
+      "utf-8",
+    );
+
+    return { type: "success" } as const;
+  } catch (e) {
+    return {
+      type: "error",
+      message: `Something went wrong while writing to ${userConfigDirPath}`,
+    } as const;
+  }
+}
+
+export async function getCustomRepoPathFromUser() {
+  const userConfigFile = path.join(userConfigDirPath, "git-repo-path.txt");
+  const userConfigFileExists = await fsExtra.pathExists(userConfigFile);
+  if (!userConfigFileExists) {
+    return null;
+  }
+
+  try {
+    const contents = await fsP.readFile(userConfigFile, "utf-8");
+    return contents;
+  } catch (e) {
+    return null;
+  }
 }
 
 export async function checkIfRepoDirIsEmpty(repoPath = gitRepoPath) {

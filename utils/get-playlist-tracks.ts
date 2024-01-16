@@ -388,9 +388,10 @@ export async function logPlaylistTracksStreamProgress(
 
   tc.totalBytes += res.items.length;
   tc.iteration++;
+  const tenth = Math.ceil(total / res.limit / 10);
 
   let timeCalculation: string | null = null;
-  if (tc.iteration <= 10) {
+  if (tc.iteration <= tenth) {
     timeCalculation = "🧮 Calculating ETA";
   } else {
     const elapsedSeconds = (Date.now() - tc.startTime) / 1000;

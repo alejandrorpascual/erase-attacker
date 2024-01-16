@@ -1,8 +1,6 @@
 import { tracksFilePath } from "~/init.ts";
 import { config } from "@utils/env.ts";
 import { log, spinner } from "@clack/prompts";
-import { authenticate } from "@utils/auth.ts";
-import { checkIfTokenExpired } from "@utils/check-expiration.ts";
 import { deleteAllAttackerItems } from "@utils/delete-items.ts";
 import { getPlaylistTracksByUserId } from "@utils/get-playlist-tracks.ts";
 import { getUsersDisplayNames } from "@utils/get-user-profile.ts";
@@ -10,35 +8,18 @@ import { askToStoreInVersionControl } from "@utils/prompts/ask-to-store-version.
 import { getAttackerUsernameChoices } from "@utils/prompts/attacker-choices.ts";
 import { displayTable } from "@utils/prompts/display-table.ts";
 import { getPlaylistIdPrompt } from "@utils/prompts/get-playlist-id.ts";
-import { refreshToken } from "@utils/refresh-token.ts";
-import { getTokenFromFile } from "@utils/token-storage.ts";
 import { storePlaylist } from "@utils/version-control.ts";
 import fsExtra from "fs-extra/esm";
-import { getServer } from "~/server.ts";
+import { entireTokenFlow } from "@utils/get-token-data.ts";
 
 export async function deleteFlow({
   controller,
 }: {
   controller: AbortController;
 }) {
-  let server: Awaited<ReturnType<typeof getServer>> | undefined;
   try {
     const s = spinner();
-    let tokenData = await getTokenFromFile();
-
-    if (!tokenData) {
-      server = getServer();
-      log.info("You need to authenticate first.");
-      s.start("Waiting for token...");
-      tokenData = await authenticate();
-      s.stop();
-    }
-
-    if (await checkIfTokenExpired(tokenData.last_generated)) {
-      tokenData = await refreshToken({
-        refresh_token: tokenData.refresh_token,
-      });
-    }
+    const tokenData = await entireTokenFlow(s);
 
     const playlistId = await getPlaylistIdPrompt({
       initialValue: config.spotify.testAttack.toPlaylistURL,
@@ -120,9 +101,10 @@ export async function deleteFlow({
         repoPath,
         token: tokenData.access_token,
       });
+
+      log.success(`🎉 Playlist stored in ${repoPath}`);
     }
   } finally {
     await fsExtra.remove(tracksFilePath);
-    server?.close();
   }
 }

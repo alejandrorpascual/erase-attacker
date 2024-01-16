@@ -1,16 +1,13 @@
 import { intro, log, outro, select } from "@clack/prompts";
 import { promptWrapper } from "@utils/prompt.ts";
 import { deleteFlow } from "@utils/prompts/delete-flow.ts";
+import { storeFlow } from "@utils/prompts/store-flow.ts";
 import { z } from "zod";
 
 const controller = new AbortController();
 process.on("SIGINT", () => {
   controller.abort();
 });
-
-async function storeFlow({ controller }: { controller: AbortController }) {
-  console.log("STORING FLOW LOL!");
-}
 
 const flowKeysSchema = z.enum(["delete", "store"]);
 type FlowKeys = z.infer<typeof flowKeysSchema>;
@@ -36,20 +33,21 @@ log.info(
   "This tool will help you to clean your Spotify playlists, from tracks added by a specific user (spammer? 🙄)",
 );
 
-const choice = (await promptWrapper(() =>
+const choice = await promptWrapper(() =>
   select({
     message: "What do you want to do?",
     initialValue: "delete",
     options: Object.entries(flows).map((entry) => {
       const [key, { message }] = entry;
-      const parsedKey = flowKeysSchema.parse(key);
       return {
         label: message,
-        value: parsedKey,
+        value: key,
       };
     }),
   }),
-)) as keyof typeof flows;
+);
 
-await flows[choice].flow({ controller });
+const parsedChoice = flowKeysSchema.parse(choice);
+await flows[parsedChoice].flow({ controller });
+
 outro(`✅ Done!`);
