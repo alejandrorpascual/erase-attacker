@@ -7,8 +7,8 @@ const BASE_API_URL = "https://api.spotify.com";
 export const spotifyEnvSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string(),
   SPOTIFY_CLIENT_SECRET: z.string(),
-  FROM_PLAYLIST_URL: z.string(),
-  TO_PLAYLIST_URL: z.string(),
+  FROM_PLAYLIST_URL: z.string().optional(),
+  TO_PLAYLIST_URL: z.string().optional(),
 });
 
 const schema = z

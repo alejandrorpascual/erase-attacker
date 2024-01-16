@@ -60,7 +60,9 @@ export async function getUsersDisplayNames(
   const map = new Map<string, string>();
   responses.forEach((response, idx) => {
     if (response.type === "error") {
-      map.set(userIds[idx], "Unknown");
+      const currentUserId = userIds[idx];
+      if (!currentUserId) return;
+      map.set(currentUserId, "Unknown");
     } else {
       map.set(response.data.id, response.data.display_name ?? "Unknown");
     }
