@@ -1,5 +1,9 @@
 import { italic, red } from "kolorist";
+import path from "node:path";
+import os from "node:os";
 import { z } from "zod";
+
+const gitRepoPath = path.join(os.homedir(), "spotify-playlists");
 
 export const REDIRECT_PATH = "auth/spotify/callback";
 const BASE_API_URL = "https://api.spotify.com";
@@ -9,6 +13,7 @@ export const spotifyEnvSchema = z.object({
   SPOTIFY_CLIENT_SECRET: z.string(),
   FROM_PLAYLIST_URL: z.string().optional(),
   TO_PLAYLIST_URL: z.string().optional(),
+  REPO_PATH: z.string().optional().default(gitRepoPath),
 });
 
 const schema = z
@@ -50,10 +55,11 @@ export const config = {
     clientId: processedEnv.SPOTIFY_CLIENT_ID,
     clientSecret: processedEnv.SPOTIFY_CLIENT_SECRET,
     testAttack: {
-      fromPlaylistURL: process.env.FROM_PLAYLIST_URL,
-      toPlaylistURL: process.env.TO_PLAYLIST_URL,
+      fromPlaylistURL: processedEnv.FROM_PLAYLIST_URL,
+      toPlaylistURL: processedEnv.TO_PLAYLIST_URL,
     },
     redirectUri: `http://localhost:${PORT}/${REDIRECT_PATH}`,
     baseApiUrl: BASE_API_URL,
+    gitRepoPath: processedEnv.REPO_PATH,
   },
 };
