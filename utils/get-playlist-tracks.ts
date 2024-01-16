@@ -180,7 +180,7 @@ export function getSourcePlaylistTracksGenerator({
   limit,
 }: Params) {
   return async function* () {
-    const rest = total % limit;
+    // const rest = total % limit;
 
     for (let offset = 0; offset < total; offset += limit) {
       const res = await getPlaylistTracks(playlistId, {
@@ -191,15 +191,15 @@ export function getSourcePlaylistTracksGenerator({
       yield { res, offset };
     }
 
-    if (rest > 0 && rest < limit) {
-      const offset = total - rest;
-      const res = await getPlaylistTracks(playlistId, {
-        token,
-        offset,
-        limit: rest,
-      });
-      yield { res, offset };
-    }
+    // if (rest > 0 && rest < limit) {
+    //   const offset = total - rest;
+    //   const res = await getPlaylistTracks(playlistId, {
+    //     token,
+    //     offset,
+    //     limit: rest,
+    //   });
+    //   yield { res, offset };
+    // }
   };
 }
 

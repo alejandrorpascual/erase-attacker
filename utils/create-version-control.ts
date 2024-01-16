@@ -1,10 +1,10 @@
 import os from "node:os";
-import { execaCommand } from "execa";
+import { execa, execaCommand } from "execa";
 import fsExtra from "fs-extra/esm";
 import fsP from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
-import { select } from "@clack/prompts";
+import { select, spinner } from "@clack/prompts";
 import { promptWrapper } from "@utils/prompt.ts";
 import invariant from "tiny-invariant";
 import { pipeline } from "node:stream/promises";
@@ -16,6 +16,7 @@ import {
 } from "@utils/get-playlist-tracks.ts";
 import { getPlaylistDetails } from "@utils/get-playlist-details.ts";
 import { getTokenDataFromFile } from "@utils/get-token-data.ts";
+import { setTimeout } from "node:timers/promises";
 
 const gitRepoPath = path.join(os.homedir(), "spotify-playlists");
 
@@ -97,32 +98,45 @@ export async function storePlaylist(
     getFilterOutErrorsGenerator([]),
     async function* (stream) {
       for await (const chunk of stream) {
-        logPlaylistTracksStreamProgress(chunk, {
-          total,
-          logProgress,
-          timeCalculation,
-        });
+        logPlaylistTracksStreamProgress(
+          { ...chunk, res: chunk.res.data },
+          {
+            total,
+            logProgress,
+            timeCalculation,
+          },
+        );
         yield chunk;
       }
     },
     async function* (stream) {
       for await (const chunk of stream) {
-        yield chunk.res.data.items.map((item) => item.track.id).join("\n");
+        const res = chunk.res.data.items
+          .map((item) => item.track.id)
+          .join("\n");
+        yield chunk.offset > 0 ? "\n" + res : res;
       }
     },
     fs.createWriteStream(
       path.join(gitRepoPath, `${playlistId}_${playlistName}.txt`),
     ),
   );
+
+  return res;
 }
 
 export async function createRepo() {
   await fsExtra.ensureDir(gitRepoPath);
   const isGitRepo = await checkIfRepoExists();
   if (!isGitRepo) {
-    await execaCommand("git init", {
-      cwd: gitRepoPath,
-    });
+    try {
+      await execa("git", ["init"], {
+        cwd: gitRepoPath,
+        cleanup: true,
+      });
+    } catch (e) {
+      console.error("EXECA ERRORED: ", e);
+    }
   }
 }
 
@@ -192,11 +206,38 @@ export async function getExistingPlaylistFiles({
   return stats.toSorted((a, b) => b.mtime - a.mtime).map((stat) => stat.file);
 }
 
-storePlaylist("2zffrd9L3584PhQT79EbXb", {
-  token: (await getTokenDataFromFile()).access_token,
-  logProgress: (input) => {
-    console.log(
-      `${input.progress}% (${input.offset}/${input.total}) | ${input.timeCalculation}`,
-    );
-  },
-});
+try {
+  const playlistId = "2zffrd9L3584PhQT79EbXb";
+  await createRepo();
+  throw new Error("test");
+
+  const s = spinner();
+  s.start("Storing playlist...");
+  const res = await storePlaylist(playlistId, {
+    token: (await getTokenDataFromFile()).access_token,
+    logProgress: (input) => {
+      s.message(
+        `${input.progress}% (${input.offset}/${input.total}) | ${input.timeCalculation}`,
+      );
+    },
+  });
+  s.stop();
+  if (res.type === "error") {
+    console.log(" ============== THERE WAS AN ERROR ===================");
+    console.error(res.response);
+    console.log(" ============== ****************** ===================");
+    process.exit(1);
+  }
+
+  s.start("Committing changes...");
+  await setTimeout(1000);
+  await commitChanges({
+    playlistId,
+    snapshotId: res.data.snapshot_id,
+  });
+  s.stop();
+} catch (e) {
+  console.log(" ============== THERE WAS AN ERROR ===================");
+  console.error(e);
+  await fsExtra.emptyDir(gitRepoPath);
+}
