@@ -6,7 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { pipeline } from "node:stream/promises";
 import {
-  TimeCalculation,
+  type TimeCalculation,
   getFilterOutErrorsGenerator,
   getSourcePlaylistTracksGenerator,
   logPlaylistTracksStreamProgress,
